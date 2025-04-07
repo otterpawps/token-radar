@@ -1,3 +1,6 @@
+![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v12%2B-orange)
+![Release](https://img.shields.io/github/v/release/foundry-vtt-community/token-radar)
+![License](https://img.shields.io/badge/license-MIT-yellow)
 # token-radar
 Radar system for Lancer in Foundry v12
 Disclaimer: I am pretty new to lancer/foundry so if I get game system rules incorrect please let me know asap.
