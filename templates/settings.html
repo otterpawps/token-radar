@@ -29,7 +29,7 @@
     <div class="form-group">
         <label>Max Radar Distance</label>
         <input type="range" name="maxDistance" value="{{settings.5.value}}" 
-            min="5" max="100" step="5" />
+            min="1" max="100" step="1" />
         <span class="range-value">{{settings.5.value}}</span>
     </div>
 
@@ -43,6 +43,12 @@
         <label>Range Ring Color</label>
         <input type="color" name="rangeRingColor" value="{{settings.7.value}}" />
     </div>
+
+    <div class="form-group">
+        <label>Use Lancer System</label>
+        <input type="checkbox" name="useLancerSystem" {{#if settings.8.value}}checked="checked"{{/if}} />
+        <span>Enabled</span>
+    </div>
     
     <footer class="sheet-footer flexrow">
         <button type="submit" class="submit-button"><i class="fas fa-save"></i> Save</button>
@@ -55,6 +61,16 @@
       const display = input.nextElementSibling;
       input.addEventListener("input", () => {
         display.textContent = input.value;
+      });
+    });
+
+    // Ensure checkboxes submit proper values
+    document.querySelector('form').addEventListener('submit', function(e) {
+      const checkboxes = this.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        if (!checkbox.hasAttribute('value')) {
+          checkbox.value = checkbox.checked ? 'true' : 'false';
+        }
       });
     });
 </script>
