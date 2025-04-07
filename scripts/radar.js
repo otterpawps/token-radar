@@ -1,6 +1,6 @@
 /**
- * Token Radar for Foundry VTT
- * Complete working version with range rings
+ * Token Radar for Foundry VTT v12+
+ * 0.2.0 commit - working, but requires more polish and features for full use.
  */
 
 class RadarSettingsConfig extends FormApplication {
