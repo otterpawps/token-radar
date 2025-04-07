@@ -1,0 +1,60 @@
+<form class="flexcol">
+    <header class="sheet-header">
+      <h1>Token Radar Settings</h1>
+    </header>
+    
+    <!-- Existing Color Settings -->
+    <div class="form-group">
+      <label>Hostile Blip Color</label>
+      <input type="color" name="hostileColor" value="{{settings.0.value}}" />
+    </div>
+    <div class="form-group">
+      <label>Neutral Blip Color</label>
+      <input type="color" name="neutralColor" value="{{settings.1.value}}" />
+    </div>
+    <div class="form-group">
+      <label>Friendly Blip Color</label>
+      <input type="color" name="friendlyColor" value="{{settings.2.value}}" />
+    </div>
+    <div class="form-group">
+      <label>Self Dot Color</label>
+      <input type="color" name="selfColor" value="{{settings.3.value}}" />
+    </div>
+    <div class="form-group">
+      <label>Radar Background Gradient</label>
+      <input type="text" name="backgroundGradient" value="{{settings.4.value}}" />
+    </div>
+    
+    <!-- Range Settings -->
+    <div class="form-group">
+        <label>Max Radar Distance</label>
+        <input type="range" name="maxDistance" value="{{settings.5.value}}" 
+            min="5" max="100" step="5" />
+        <span class="range-value">{{settings.5.value}}</span>
+    </div>
+
+    <div class="form-group">
+        <label>Show Range Rings</label>
+        <input type="checkbox" name="showRangeRings" {{#if settings.6.value}}checked="checked"{{/if}} />
+        <span>Enabled</span>
+    </div>
+    
+    <div class="form-group">
+        <label>Range Ring Color</label>
+        <input type="color" name="rangeRingColor" value="{{settings.7.value}}" />
+    </div>
+    
+    <footer class="sheet-footer flexrow">
+        <button type="submit" class="submit-button"><i class="fas fa-save"></i> Save</button>
+    </footer>
+</form>
+
+<script>
+    // Update range value displays in real-time
+    document.querySelectorAll("input[type='range']").forEach(input => {
+      const display = input.nextElementSibling;
+      input.addEventListener("input", () => {
+        display.textContent = input.value;
+      });
+    });
+</script>
