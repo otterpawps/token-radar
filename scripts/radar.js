@@ -17,14 +17,15 @@ class RadarSettingsConfig extends FormApplication {
   getData() {
     // Ensure settings exist before accessing them
     const settings = [
-      { name: "hostileColor", value: game.settings.get("token-radar", "hostileColor") },
-      { name: "neutralColor", value: game.settings.get("token-radar", "neutralColor") },
-      { name: "friendlyColor", value: game.settings.get("token-radar", "friendlyColor") },
-      { name: "selfColor", value: game.settings.get("token-radar", "selfColor") },
-      { name: "backgroundGradient", value: game.settings.get("token-radar", "backgroundGradient") },
-      { name: "maxDistance", value: game.settings.get("token-radar", "maxDistance") },
-      { name: "showRangeRings", value: game.settings.get("token-radar", "showRangeRings") },
-      { name: "rangeRingColor", value: game.settings.get("token-radar", "rangeRingColor") }
+      { name: "hostileColor", value: game.settings.get("token-radar", "hostileColor") || "#ff0000" },
+      { name: "neutralColor", value: game.settings.get("token-radar", "neutralColor") || "#ffff00" },
+      { name: "friendlyColor", value: game.settings.get("token-radar", "friendlyColor") || "#00ff00" },
+      { name: "selfColor", value: game.settings.get("token-radar", "selfColor") || "#00ff00" },
+      { name: "backgroundGradient", value: game.settings.get("token-radar", "backgroundGradient") || "radial-gradient(circle at center, rgba(0,255,0,0.15), rgba(0,0,0,0.9))" },
+      { name: "maxDistance", value: game.settings.get("token-radar", "maxDistance") || 30 },
+      { name: "showRangeRings", value: game.settings.get("token-radar", "showRangeRings") !== false }, // Default to true if not set
+      { name: "rangeRingColor", value: game.settings.get("token-radar", "rangeRingColor") || "rgba(0,255,0,0.2)" },
+      { name: "useLancerSystem", value: game.settings.get("token-radar", "useLancerSystem") || false }
     ];
     return { settings };
   }
@@ -40,7 +41,8 @@ class RadarSettingsConfig extends FormApplication {
       backgroundGradient: formData.backgroundGradient,
       maxDistance: Number(formData.maxDistance),
       rangeRingColor: formData.rangeRingColor,
-      showRangeRings: !!formData.showRangeRings // This handles missing checkbox
+      showRangeRings: formData.showRangeRings === 'true' || formData.showRangeRings === true,
+      useLancerSystem: formData.useLancerSystem === 'true' || formData.useLancerSystem === true
     };
   
     // Write settings to Foundry
@@ -52,9 +54,7 @@ class RadarSettingsConfig extends FormApplication {
     TokenRadar.createRadarHUD();
     TokenRadar.getDebouncedUpdate()();
     this.close();
-  }
-  
-  
+  } 
 }
 
 const TokenRadar = (() => {
@@ -69,7 +69,7 @@ const TokenRadar = (() => {
   };
 
   const drawRangeRings = (ctx, radarSize, maxDistance) => {
-    const showRings = game.settings.get("token-radar", "showRangeRings");   
+    const showRings = game.settings.get("token-radar", "showRangeRings") !== false; // Default to true
     if (!showRings) return;
   
     const ringColor = game.settings.get("token-radar", "rangeRingColor") || "rgba(0,255,0,0.2)";
@@ -81,19 +81,59 @@ const TokenRadar = (() => {
     ctx.font = "10px Arial";
     ctx.textAlign = "center";
   
-    // Draw rings every 5 units up to maxDistance
-    const step = 5;
-    for (let dist = step; dist <= maxDistance; dist += step) {
+    // Draw 3 evenly spaced rings (inner, middle, outer)
+    const rings = 3;
+    for (let i = 1; i <= rings; i++) {
+      const dist = (maxDistance / rings) * i;
       const ringRadius = (dist / maxDistance) * (radarRadius - 5);
   
       ctx.beginPath();
       ctx.arc(radarRadius, radarRadius, ringRadius, 0, 2 * Math.PI);
       ctx.stroke();
   
-      ctx.fillText(`${dist}`, radarRadius, radarRadius - ringRadius - 5);
+      ctx.fillText(`${Math.round(dist)}`, radarRadius, radarRadius - ringRadius - 5);
     }
   };
-  
+
+  const getMaxDistance = () => {
+    const useLancer = game.settings.get("token-radar", "useLancerSystem");
+    if (!useLancer || game.system.id !== "lancer") {
+      return game.settings.get("token-radar", "maxDistance") || 30;
+    }
+
+    const selected = canvas.tokens?.controlled[0];
+    if (!selected) return game.settings.get("token-radar", "maxDistance") || 30;
+
+    try {
+      const actor = selected.actor;
+      if (!actor) return game.settings.get("token-radar", "maxDistance") || 30;
+
+      // Lancer-specific data structure access
+      let sensorRange = 0;
+      
+      // Try different ways to access sensor range based on Lancer system version
+      if (actor.system?.stats?.sensor) {
+        // Newer Lancer versions
+        sensorRange = actor.system.stats.sensor.value || 0;
+      } else if (actor.system?.derived?.sensor_range) {
+        // Older Lancer versions
+        sensorRange = actor.system.derived.sensor_range.value || 0;
+      } else if (actor.system?.sensor_range) {
+        // Alternative location
+        sensorRange = actor.system.sensor_range || 0;
+      }
+
+      console.log("Lancer Sensor Range:", sensorRange); // Debug logging
+      
+      if (sensorRange > 0) {
+        return sensorRange;
+      }
+    } catch (e) {
+      console.error("Token Radar: Error getting Lancer sensor range", e);
+    }
+
+    return game.settings.get("token-radar", "maxDistance") || 30;
+};
 
   const updateRadar = () => {
     if (!isCanvasReady()) {
@@ -107,7 +147,7 @@ const TokenRadar = (() => {
     updateRadarCanvasSize();
 
     const radarSize = game.settings.get("token-radar", "radarSize");
-    const maxDistance = game.settings.get("token-radar", "maxDistance");
+    const maxDistance = getMaxDistance();
     const blipSize = game.settings.get("token-radar", "blipSize");
     const ctx = canvasEl.getContext("2d");
     ctx.clearRect(0, 0, radarSize, radarSize);
@@ -307,82 +347,99 @@ const TokenRadar = (() => {
                    "radial-gradient(circle at center, rgba(0,255,0,0.15), rgba(0,0,0,0.9))");
 
 
-      game.settings.register("token-radar", "showRangeRings", {
-        name: "Show Range Rings",
-        scope: "client",
-        config: true,
-        type: Boolean,
-        default: true, // Default to true
-        onChange: updateRadar
-      });
+    game.settings.register("token-radar", "useLancerSystem", {
+      name: "Use Lancer System Sensor Range",
+      scope: "client",
+      config: true,
+      type: Boolean,
+      default: false,
+      onChange: updateRadar
+    });
+    game.settings.register("token-radar", "showRangeRings", {
+      name: "Show Range Rings",
+      scope: "client",
+      config: true,
+      type: Boolean,
+      default: true,
+      onChange: updateRadar
+    });
 
-      game.settings.register("token-radar", "rangeRingColor", {
-        name: "Range Ring Color",
-        scope: "client",
-        config: true,
-        type: String,
-        default: "rgba(0,255,0,0.2)",
-        onChange: updateRadar
-      });
+    game.settings.register("token-radar", "rangeRingColor", {
+      name: "Range Ring Color",
+      scope: "client",
+      config: true,
+      type: String,
+      default: "rgba(0,255,0,0.2)",
+      onChange: updateRadar
+    });
 
-      game.settings.register("token-radar", "maxDistance", {
-        name: "Max Radar Distance (grid units)",
-        scope: "client",
-        config: true,
-        type: Number,
-        default: 30,
-        range: { min: 5, max: 100, step: 5 },
-        onChange: updateRadar
-      });
+    game.settings.register("token-radar", "maxDistance", {
+      name: "Max Radar Distance (grid units)",
+      scope: "client",
+      config: true,
+      type: Number,
+      default: 30,
+      range: { min: 1, max: 100, step: 1 },
+      onChange: updateRadar
+    });
 
-      game.settings.register("token-radar", "radarSize", {
-        name: "Radar Size (pixels)",
-        scope: "client",
-        config: true,
-        type: Number,
-        default: 150,
-        range: { min: 50, max: 300, step: 10 },
-        onChange: () => {
-          removeRadar();
-          createRadarHUD();
-        }
-      });
+    game.settings.register("token-radar", "radarSize", {
+      name: "Radar Size (pixels)",
+      scope: "client",
+      config: true,
+      type: Number,
+      default: 150,
+      range: { min: 50, max: 300, step: 10 },
+      onChange: () => {
+        removeRadar();
+        createRadarHUD();
+      }
+    });
 
-      game.settings.register("token-radar", "blipSize", {
-        name: "Blip Size (pixels)",
-        scope: "client",
-        config: true,
-        type: Number,
-        default: 4,
-        range: { min: 2, max: 10, step: 1 },
-        onChange: updateRadar
-      });
+    game.settings.register("token-radar", "blipSize", {
+      name: "Blip Size (pixels)",
+      scope: "client",
+      config: true,
+      type: Number,
+      default: 4,
+      range: { min: 2, max: 10, step: 1 },
+      onChange: updateRadar
+    });
 
-      game.settings.register("token-radar", "position", {
-        name: "Radar Position",
-        scope: "client",
-        type: Object,
-        default: { top: "10px", left: "unset", right: "10px" },
-        config: false
-      });
+    game.settings.register("token-radar", "position", {
+      name: "Radar Position",
+      scope: "client",
+      type: Object,
+      default: { top: "10px", left: "unset", right: "10px" },
+      config: false
+    });
 
-      game.settings.registerMenu("token-radar", "settingsMenu", {
-        name: "Token Radar Settings",
-        label: "Configure Token Radar",
-        hint: "Open a dedicated settings panel for Token Radar.",
-        type: RadarSettingsConfig,
-        restricted: false
-      });
+    game.settings.register("token-radar", "useLancerSystem", {
+      name: "Use Lancer System Sensor Range",
+      scope: "client",
+      config: true,
+      type: Boolean,
+      default: false,
+      onChange: updateRadar
+    });
 
-      game.keybindings.register("token-radar", "toggleRadar", {
-        name: "Toggle Radar Visibility",
-        hint: "Show/hide the token radar",
-        editable: [{ key: "KeyR", modifiers: ["Control"] }],
-        onDown: () => {
-          const hud = document.getElementById("token-radar-hud");
-          if (hud) hud.style.display = hud.style.display === "none" ? "block" : "none";
-        }
-      });
+    game.settings.registerMenu("token-radar", "settingsMenu", {
+      name: "Token Radar Settings",
+      label: "Configure Token Radar",
+      hint: "Open a dedicated settings panel for Token Radar.",
+      type: RadarSettingsConfig,
+      restricted: false
+    });
+
+    game.keybindings.register("token-radar", "toggleRadar", {
+      name: "Toggle Radar Visibility",
+      hint: "Show/hide the token radar",
+      editable: [{ key: "KeyR", modifiers: ["Control"] }],
+      onDown: () => {
+        const hud = document.getElementById("token-radar-hud");
+        if (hud) hud.style.display = hud.style.display === "none" ? "block" : "none";
+      }
+    });
 
       if (game.settings.get("token-radar", "showRangeRings") === undefined) {
         game.settings.set("token-radar", "showRangeRings", true);
@@ -393,6 +450,7 @@ const TokenRadar = (() => {
       if (canvas.ready) {
         createRadarHUD();
         updateRadar();
+        
       }
     },
 
@@ -413,10 +471,6 @@ const TokenRadar = (() => {
 // Hook registration
 Hooks.once("init", () => TokenRadar.initSettings());
 Hooks.once("ready", () => {
-  if (game.settings.get("token-radar", "showRangeRings") === false) {
-    console.warn("Radar: Resetting showRangeRings to true");
-    game.settings.set("token-radar", "showRangeRings", true);
-  }
   TokenRadar.onReady();
 });
 
