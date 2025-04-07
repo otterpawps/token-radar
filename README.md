@@ -1,5 +1,5 @@
 ![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v12%2B-orange)
-![Release](https://img.shields.io/github/v/release/foundry-vtt-community/token-radar)
+![GitHub release (latest)](https://img.shields.io/github/v/release/otterpawps/token-radar)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 # token-radar
 Radar system for Lancer in Foundry v12
